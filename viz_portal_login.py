@@ -9,10 +9,25 @@ import Crypto
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_v1_5
 from base64 import b64decode
+#If you want to use AWS KMS for encrypting/decrypting your username/password you'll need boto3
+#import boto3
 
 tab_server_url = "http://YourTableauServerUrlGoesHere"
 tableau_username = raw_input("Enter your username: ")
 tableau_password = raw_input("Input your password: ")
+
+#Set UP KMS Client
+#kms = boto3.client('kms')
+#keyid = ARN from KMS
+#You should store your username/password in encrypted form, in S3, Dynamo, or other DB
+#Fetch them with the appropriate Boto Context, then decrypt 
+#If you store the entire Python Dict, then you'll need to do this
+#cipher = Dict.get('CiphertextBlob')
+#otherwise, you can just decrypt the blob like this
+#username_decrypt = kms.decrypt(CiphertextBlob=cipher)
+#then substitute tableau_username with username_decrypt
+#repeat for tableau_password
+
 
 def _encode_for_display(text):
     """
