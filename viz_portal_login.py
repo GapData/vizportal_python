@@ -12,7 +12,7 @@ from base64 import b64decode
 #If you want to use AWS KMS for encrypting/decrypting your username/password you'll need boto3
 #import boto3
 
-tab_server_url = "http://YourTableauServerUrlGoesHere"
+tab_server_url = raw_input("Enter your Tableau Server URL:")
 tableau_username = raw_input("Enter your username: ")
 tableau_password = raw_input("Input your password: ")
 
@@ -20,7 +20,7 @@ tableau_password = raw_input("Input your password: ")
 #kms = boto3.client('kms')
 #keyid = ARN from KMS
 #You should store your username/password in encrypted form, in S3, Dynamo, or other DB
-#Fetch them with the appropriate Boto Context, then decrypt 
+#Fetch them with the appropriate Boto Context, then decrypt
 #If you store the entire Python Dict, then you'll need to do this
 #cipher = Dict.get('CiphertextBlob')
 #otherwise, you can just decrypt the blob like this
@@ -85,13 +85,53 @@ def vizportalLogin(encryptedPassword, keyId):
      response = session.post(url, data=payload, headers=headers)
      return response
 
+
+def getSessionInfo(xsrf_token):
+    payload = "{\"method\":\"getSessionInfo\",\"params\":{}}"
+    endpoint = "getSessionInfo"
+    url = tab_server_url + "/vizportal/api/web/v1/"+endpoint
+    # print url
+    headers = {
+    'content-type': "application/json;charset=UTF-8",
+    'accept': "application/json, text/plain, */*",
+    'cache-control': "no-cache",
+    'X-XSRF-TOKEN':xsrf_token
+    }
+    SessionResponse = session.post(url, data=payload, headers=headers)
+    # return response.cookies
+    return SessionResponse
+
+def DetectTableauVersion():
+    global xsrf_token
+    # xsrf_token, workgroup_session_id = login_to_vizportal()
+    TabServerSession = getSessionInfo(xsrf_token).text
+    TSS = json.loads(TabServerSession)
+    v = TSS['result']['server']['version']['externalVersion']
+    major = v['major']
+    minor = v['minor']
+    patch = v['patch']
+    tsVersion = major+'.'+minor
+    api_version = None
+
+    api_versions = requests.get('https://tbevdbgwch.execute-api.us-west-2.amazonaws.com/Production/versions/')
+    api_lookup = json.loads(api_versions.text)
+    # print api_lookup
+    for k,v in api_lookup['server'].iteritems():
+        if k == tsVersion:
+            #print v
+            api_version = v
+    return tsVersion, api_version
+
 login_response = vizportalLogin(encryptedPassword, pk)
 if login_response.status_code == 200:
     print "Login to Vizportal Successful!"
 
+# print login_response.headers
 sc = login_response.headers["Set-Cookie"]
 set_cookie = dict(item.split("=") for item in sc.split(";"))
 xsrf_token, workgroup_session_id = set_cookie[" HttpOnly, XSRF-TOKEN"], set_cookie["workgroup_session_id"]
+
+
 #Use this for connections with SSL
 #sc = login_response.headers["Set-Cookie"]
 # headers = []
@@ -102,3 +142,8 @@ xsrf_token, workgroup_session_id = set_cookie[" HttpOnly, XSRF-TOKEN"], set_cook
 #     elif "XSRF" in item:
 #         headers.append(item.split("=")[1])
 # workgroup_session_id, xsrf_token = headers[0], headers[1]
+
+
+tsVersion, api_version = DetectTableauVersion()
+print "Tableau Server Version: %s" % (tsVersion)
+print "API Version: %s" % (api_version)
